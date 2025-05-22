@@ -85,7 +85,7 @@ class DocumentListView(ttk.Frame):
         """Handle click events on the treeview."""
         region = self.tree.identify_region(event.x, event.y)
         if region == "cell":
-            column = self.tree.identify_column(event.x, event.y)
+            column = self.tree.identify_column(event.x)
             if column == '#1':  # Select column
                 item = self.tree.identify_row(event.y)
                 if item:

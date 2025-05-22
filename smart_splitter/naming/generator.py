@@ -177,8 +177,15 @@ class FileNameGenerator:
     def _apply_template(self, template: str, components: Dict[str, str]) -> str:
         """Apply template with component substitution"""
         try:
+            # Create a safe formatter that handles missing keys
+            class SafeDict(dict):
+                def __missing__(self, key):
+                    return ''  # Return empty string for missing keys
+            
+            safe_components = SafeDict(components)
+            
             # Replace template variables
-            filename = template.format(**components)
+            filename = template.format_map(safe_components)
             
             # Clean up any empty substitutions
             filename = re.sub(r'_{2,}', '_', filename)  # Multiple underscores
