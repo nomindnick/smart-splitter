@@ -8,7 +8,13 @@ for document type and filename modification.
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional, Callable
-from PIL import Image, ImageTk
+from PIL import Image
+try:
+    from PIL import ImageTk
+    IMAGETK_AVAILABLE = True
+except ImportError:
+    IMAGETK_AVAILABLE = False
+    print("Warning: ImageTk not available. Install with: sudo apt-get install python3-pil.imagetk")
 import fitz  # PyMuPDF
 import io
 
@@ -159,6 +165,11 @@ class PreviewPane(ttk.Frame):
         """Update the preview image."""
         if not self.current_document or not self.current_pdf_path:
             self._show_no_preview()
+            return
+        
+        if not IMAGETK_AVAILABLE:
+            self._show_no_preview()
+            self.no_preview_label.config(text="Preview unavailable\n(ImageTk not installed)")
             return
         
         try:

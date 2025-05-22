@@ -63,22 +63,45 @@ class SmartSplitterGUI:
             
             # Initialize processing components
             self.pdf_processor = PDFProcessor()
-            self.boundary_detector = BoundaryDetector(self.config.get('boundary_detection', {}))
-            self.classifier = DocumentClassifier(
-                self.config.get('classification', {}),
-                api_key=self.config.get('api', {}).get('api_key', '')
+            # Pass the ConfigManager instance instead of dictionary
+            self.boundary_detector = BoundaryDetector(self.config_manager)
+            
+            # Create ClassificationConfig from configuration
+            from ..classification.data_models import ClassificationConfig
+            # Get API settings and processing settings for classification
+            api_config = self.config.get('patterns', {}).get('api', {})
+            processing_config = self.config.get('processing', {})
+            classification_rules = self.config.get('patterns', {}).get('classification_rules', {})
+            
+            classification_config = ClassificationConfig(
+                api_model=api_config.get('model', 'gpt-4o-mini'),
+                max_input_chars=processing_config.get('max_input_chars', 1000),
+                confidence_threshold=processing_config.get('confidence_threshold', 0.7),
+                rule_patterns=classification_rules,
+                api_temperature=api_config.get('temperature', 0.0),
+                max_output_tokens=api_config.get('max_tokens', 10),
+                api_timeout=api_config.get('timeout', 10)
             )
+            self.classifier = DocumentClassifier(
+                classification_config,
+                api_key=self.config.get('api', {}).get('openai_api_key', '')
+            )
+            
             from ..naming.data_models import NamingConfig
-            naming_config_dict = self.config.get('naming', {})
+            naming_config_dict = self.config.get('patterns', {}).get('naming', {})
+            # Map 'templates' to 'custom_templates' if present
+            if 'templates' in naming_config_dict:
+                naming_config_dict['custom_templates'] = naming_config_dict.pop('templates')
             naming_config = NamingConfig(**naming_config_dict) if naming_config_dict else NamingConfig()
             self.file_generator = FileNameGenerator(naming_config)
             
             # Initialize export configuration
+            export_config_dict = self.config.get('patterns', {}).get('export', {})
             export_config = ExportConfig(
-                output_directory=self.config.get('export', {}).get('output_directory', './output'),
-                overwrite_existing=self.config.get('export', {}).get('overwrite_existing', False),
-                create_subdirectories=self.config.get('export', {}).get('create_subdirectories', True),
-                filename_collision_strategy=self.config.get('export', {}).get('filename_collision_strategy', 'rename')
+                output_directory=export_config_dict.get('output_directory', './output'),
+                overwrite_existing=export_config_dict.get('overwrite_existing', False),
+                create_subdirectories=export_config_dict.get('create_subdirectories', True),
+                filename_collision_strategy=export_config_dict.get('filename_collision_strategy', 'rename')
             )
             self.exporter = PDFExporter(export_config)
             
