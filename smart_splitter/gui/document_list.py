@@ -32,13 +32,21 @@ class DocumentListView(ttk.Frame):
     
     def _setup_ui(self) -> None:
         """Set up the user interface components."""
+        # Configure style for proper row height and font
+        style = ttk.Style()
+        style.configure('Treeview', 
+                       rowheight=30,  # Increased row height
+                       font=('TkDefaultFont', 9))  # Set font size
+        style.configure('Treeview.Heading',
+                       font=('TkDefaultFont', 9, 'bold'))  # Bold headers
+        
         # Create main frame with scrollbar
         self.tree_frame = ttk.Frame(self)
         self.tree_frame.pack(fill=tk.BOTH, expand=True)
         
         # Create treeview for document list
         columns = ('select', 'filename', 'type', 'pages', 'confidence')
-        self.tree = ttk.Treeview(self.tree_frame, columns=columns, show='headings', height=12)
+        self.tree = ttk.Treeview(self.tree_frame, columns=columns, show='headings', height=20)
         
         # Configure column headings
         self.tree.heading('select', text='✓')
@@ -48,11 +56,11 @@ class DocumentListView(ttk.Frame):
         self.tree.heading('confidence', text='Confidence')
         
         # Configure column widths with better spacing
-        self.tree.column('select', width=50, minwidth=50, anchor='center', stretch=False)
-        self.tree.column('filename', width=500, minwidth=400, stretch=True)
-        self.tree.column('type', width=180, minwidth=150, stretch=False)
-        self.tree.column('pages', width=120, minwidth=100, anchor='center', stretch=False)
-        self.tree.column('confidence', width=120, minwidth=100, anchor='center', stretch=False)
+        self.tree.column('select', width=30, minwidth=30, anchor='center', stretch=False)
+        self.tree.column('filename', width=450, minwidth=350, stretch=True)
+        self.tree.column('type', width=150, minwidth=120, stretch=False)
+        self.tree.column('pages', width=80, minwidth=60, anchor='center', stretch=False)
+        self.tree.column('confidence', width=90, minwidth=70, anchor='center', stretch=False)
         
         # Add scrollbar
         scrollbar = ttk.Scrollbar(self.tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
