@@ -10,7 +10,7 @@ from dataclasses import asdict
 from .data_models import ClassificationResult, ClassificationConfig, DocumentType, ClassificationMethod
 
 try:
-    import openai
+    from openai import OpenAI
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
@@ -35,8 +35,7 @@ class DocumentClassifier:
         self.openai_client = None
         if OPENAI_AVAILABLE and api_key:
             try:
-                openai.api_key = api_key
-                self.openai_client = openai
+                self.openai_client = OpenAI(api_key=api_key)
                 self.logger.info("OpenAI client initialized successfully")
             except Exception as e:
                 self.logger.warning(f"Failed to initialize OpenAI client: {e}")
@@ -226,7 +225,7 @@ Document text (first 1000 chars):
 Return only the category name, nothing else."""
         
         try:
-            response = self.openai_client.ChatCompletion.create(
+            response = self.openai_client.chat.completions.create(
                 model=self.config.api_model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=self.config.api_temperature,

@@ -91,7 +91,7 @@ class TestDocumentClassifier:
     def test_initialization_with_api(self):
         """Test classifier initialization with API key"""
         config = ClassificationConfig()
-        with patch('smart_splitter.classification.classifier.openai'):
+        with patch('smart_splitter.classification.classifier.OpenAI'):
             classifier = DocumentClassifier(config, api_key="test-key")
             assert classifier.api_key == "test-key"
     
