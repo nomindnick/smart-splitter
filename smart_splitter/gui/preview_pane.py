@@ -80,6 +80,9 @@ class PreviewPane(ttk.Frame):
         self.no_preview_label = tk.Label(self.canvas, text="No document selected", 
                                         bg='white', fg='gray')
         self.canvas.create_window(150, 100, window=self.no_preview_label)
+        
+        # Bind resize event
+        self.canvas.bind('<Configure>', self._on_canvas_resize)
     
     def _setup_controls(self) -> None:
         """Set up the editing controls."""
@@ -180,25 +183,49 @@ class PreviewPane(ttk.Frame):
             if page_num < len(pdf_doc):
                 page = pdf_doc[page_num]
                 
-                # Render page as image
-                mat = fitz.Matrix(1.5, 1.5)  # Scale factor for better quality
+                # Get canvas dimensions
+                self.canvas.update_idletasks()  # Ensure canvas has updated dimensions
+                canvas_width = self.canvas.winfo_width()
+                canvas_height = self.canvas.winfo_height()
+                
+                # Ensure minimum dimensions
+                if canvas_width < 100:
+                    canvas_width = 600
+                if canvas_height < 100:
+                    canvas_height = 400
+                
+                # Calculate scale to fit canvas while maintaining aspect ratio
+                page_rect = page.rect
+                page_width = page_rect.width
+                page_height = page_rect.height
+                
+                # Calculate scale factors
+                scale_x = (canvas_width - 20) / page_width  # Leave 10px margin on each side
+                scale_y = (canvas_height - 20) / page_height
+                scale = min(scale_x, scale_y)  # Use smaller scale to fit both dimensions
+                
+                # Ensure reasonable scale
+                scale = max(scale, 0.5)  # Minimum 50% scale
+                scale = min(scale, 3.0)  # Maximum 300% scale
+                
+                # Render page as image with calculated scale
+                mat = fitz.Matrix(scale, scale)
                 pix = page.get_pixmap(matrix=mat)
                 img_data = pix.tobytes("ppm")
                 
                 # Convert to PIL Image
                 pil_image = Image.open(io.BytesIO(img_data))
                 
-                # Scale image to fit preview area
-                preview_width = 300
-                preview_height = int(pil_image.height * preview_width / pil_image.width)
-                pil_image = pil_image.resize((preview_width, preview_height), Image.Resampling.LANCZOS)
-                
                 # Convert to PhotoImage
                 self.preview_image = ImageTk.PhotoImage(pil_image)
                 
-                # Clear canvas and display image
+                # Clear canvas and display image centered
                 self.canvas.delete("all")
-                self.canvas.create_image(10, 10, anchor=tk.NW, image=self.preview_image)
+                img_width = pil_image.width
+                img_height = pil_image.height
+                x = max(10, (canvas_width - img_width) // 2)
+                y = max(10, (canvas_height - img_height) // 2)
+                self.canvas.create_image(x, y, anchor=tk.NW, image=self.preview_image)
                 
                 # Update scroll region
                 self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -265,3 +292,12 @@ class PreviewPane(ttk.Frame):
         
         # Clear preview
         self._show_no_preview()
+    
+    def _on_canvas_resize(self, event=None) -> None:
+        """Handle canvas resize events."""
+        # Only update preview if we have a document and the canvas size has changed significantly
+        if self.current_document and self.current_pdf_path:
+            # Debounce resize events by scheduling update
+            if hasattr(self, '_resize_after_id'):
+                self.after_cancel(self._resize_after_id)
+            self._resize_after_id = self.after(100, self._update_preview_image)

@@ -174,13 +174,14 @@ class DocumentClassifier:
                 try:
                     if re.search(pattern, text_upper, re.IGNORECASE | re.MULTILINE):
                         matches.append(pattern)
-                        confidence += 0.3  # Each pattern match adds confidence
                 except re.error as e:
                     self.logger.warning(f"Invalid regex pattern '{pattern}': {e}")
                     continue
             
-            # Normalize confidence (max 1.0)
-            confidence = min(confidence, 1.0)
+            # Calculate confidence based on pattern matches
+            if matches:
+                # Base confidence of 0.6 for 1 match, +0.2 for each additional match
+                confidence = min(0.6 + (len(matches) - 1) * 0.2, 1.0)
             
             if confidence > best_confidence:
                 best_confidence = confidence
