@@ -272,28 +272,37 @@ class SmartSplitterGUI:
             self._update_progress(0, "Loading PDF...")
             
             # Load PDF
-            pdf_result = self.pdf_processor.process_pdf(self.current_pdf_path)
+            if not self.pdf_processor.load_pdf(self.current_pdf_path):
+                raise PDFProcessingError(f"Failed to load PDF: {self.current_pdf_path}")
+                
+            # Extract page data
+            pages_data = self.pdf_processor.extract_page_data()
             self._update_progress(20, "Detecting boundaries...")
             
             # Detect document boundaries
-            boundaries = self.boundary_detector.detect_boundaries(pdf_result.pages)
+            boundaries = self.boundary_detector.detect_boundaries(pages_data)
             self._update_progress(40, "Classifying documents...")
             
             # Process each document section
             documents = []
-            total_sections = len(boundaries)
             
-            for i, boundary in enumerate(boundaries):
+            # Convert boundary indices to document sections
+            document_boundaries = []
+            for i in range(len(boundaries)):
+                start_page = boundaries[i] + 1  # Convert to 1-based page numbers
+                end_page = boundaries[i + 1] if i + 1 < len(boundaries) else len(pages_data)
+                document_boundaries.append((start_page, end_page))
+            
+            total_sections = len(document_boundaries)
+            
+            for i, (start_page, end_page) in enumerate(document_boundaries):
                 try:
-                    # Get text sample for classification
-                    start_page = boundary.start_page
-                    end_page = boundary.end_page
                     
                     # Extract text from first few pages of the section
                     text_sample = ""
-                    for page_num in range(start_page, min(start_page + 3, end_page + 1)):
-                        if page_num <= len(pdf_result.pages):
-                            page_data = pdf_result.pages[page_num - 1]
+                    for page_idx in range(start_page - 1, min(start_page + 2, end_page)):
+                        if page_idx < len(pages_data):
+                            page_data = pages_data[page_idx]
                             text_sample += page_data.text + "\n"
                     
                     # Classify document
