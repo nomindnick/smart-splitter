@@ -190,15 +190,16 @@ class TestRecoveryManager(unittest.TestCase):
         mock_recover.return_value = True
         
         # Mock operation that succeeds after recovery
+        from smart_splitter.error_handling.exceptions import MemoryError as SmartMemoryError
+        
         operation_calls = 0
         def test_operation():
             nonlocal operation_calls
             operation_calls += 1
             if operation_calls == 1:
-                raise MemoryError("Memory error")
+                raise SmartMemoryError("Memory error")
             return "success"
         
-        from smart_splitter.error_handling.exceptions import MemoryError as SmartMemoryError
         error = SmartMemoryError("Memory error")
         
         result = self.recovery_manager.attempt_recovery(error, test_operation, max_retries=2)

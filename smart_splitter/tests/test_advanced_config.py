@@ -77,6 +77,8 @@ class TestAdvancedConfigManager(unittest.TestCase):
     
     def setUp(self):
         self.mock_config_manager = Mock(spec=ConfigManager)
+        # Configure mock to return empty dicts by default
+        self.mock_config_manager.get_setting.return_value = {}
         self.advanced_config = AdvancedConfigManager(self.mock_config_manager)
     
     def test_load_config_section(self):
@@ -278,6 +280,13 @@ class TestConfigProfileManager(unittest.TestCase):
     
     def setUp(self):
         self.mock_advanced_config = Mock(spec=AdvancedConfigManager)
+        
+        # Add default config attributes to mock
+        self.mock_advanced_config.performance = PerformanceConfig()
+        self.mock_advanced_config.api = APIConfig()
+        self.mock_advanced_config.export = ExportConfig()
+        self.mock_advanced_config.ui = UIConfig()
+        self.mock_advanced_config.processing = ProcessingConfig()
         
         # Create temporary profiles directory
         self.temp_dir = tempfile.mkdtemp()

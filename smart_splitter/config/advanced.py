@@ -47,9 +47,9 @@ class ExportConfig:
     compress_pdfs: bool = False
     quality_level: int = 75  # For compression
     filename_collision_strategy: str = "rename"  # rename, skip, overwrite
-    filename_max_length: int = 200  # Match existing config name
+    max_filename_length: int = 200  # Match existing config name
     preserve_bookmarks: bool = False
-    include_page_numbers: bool = True  # Match existing config name
+    add_page_numbers: bool = True  # Match existing config name
 
 
 @dataclass
@@ -322,7 +322,7 @@ class AdvancedConfigManager:
                 "Enable create_subdirectories to organize exported files better"
             )
         
-        if self.export.filename_max_length > 150:
+        if self.export.max_filename_length > 150:
             recommendations.append(
                 "Consider reducing filename_max_length for better compatibility"
             )

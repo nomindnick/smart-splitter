@@ -48,14 +48,16 @@ class PerformanceMonitor:
     def monitor_operation(self, operation_name: str, **additional_data):
         """Context manager for monitoring operations."""
         metrics = self.start_operation(operation_name, **additional_data)
+        success = True
+        error_message = None
         try:
             yield metrics
-            metrics.complete(success=True)
         except Exception as e:
-            metrics.complete(success=False, error_message=str(e))
+            success = False
+            error_message = str(e)
             raise
         finally:
-            self.end_operation(operation_name)
+            self.end_operation(operation_name, success=success, error_message=error_message)
     
     def start_operation(self, operation_name: str, **additional_data) -> PerformanceMetrics:
         """Start monitoring an operation."""
@@ -131,10 +133,8 @@ def monitor_performance(operation_name: str):
             elif args and hasattr(args[0], '_performance_monitor'):
                 monitor = args[0]._performance_monitor
             else:
-                # Create a global monitor
-                if not hasattr(monitor_performance, '_global_monitor'):
-                    monitor_performance._global_monitor = PerformanceMonitor()
-                monitor = monitor_performance._global_monitor
+                # Use the global monitor
+                monitor = global_monitor
             
             with monitor.monitor_operation(operation_name) as metrics:
                 result = func(*args, **kwargs)

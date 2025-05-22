@@ -15,13 +15,13 @@ import logging
 from .document_list import DocumentListView
 from .preview_pane import PreviewPane
 from .data_models import DocumentSection
-from ..processing.pdf_processor import PDFProcessor
-from ..processing.boundary_detector import BoundaryDetector
+from ..pdf_processing.processor import PDFProcessor
+from ..boundary_detection.detector import BoundaryDetector
 from ..classification.classifier import DocumentClassifier
 from ..naming.generator import FileNameGenerator
 from ..export.exporter import PDFExporter
 from ..export.data_models import ExportConfig
-from ..config.manager import ConfigurationManager
+from ..config.manager import ConfigManager
 from ..performance.monitor import global_monitor, monitor_performance
 from ..performance.optimizer import ProcessingOptimizer
 from ..error_handling.handlers import global_error_handler
@@ -58,24 +58,27 @@ class SmartSplitterGUI:
         """Initialize the processing components."""
         try:
             # Load configuration
-            self.config_manager = ConfigurationManager()
-            self.config = self.config_manager.load_config()
+            self.config_manager = ConfigManager()
+            self.config = self.config_manager.config
             
             # Initialize processing components
             self.pdf_processor = PDFProcessor()
-            self.boundary_detector = BoundaryDetector(self.config.boundary_detection)
+            self.boundary_detector = BoundaryDetector(self.config.get('boundary_detection', {}))
             self.classifier = DocumentClassifier(
-                self.config.classification,
-                api_key=self.config.api.get('api_key', '')
+                self.config.get('classification', {}),
+                api_key=self.config.get('api', {}).get('api_key', '')
             )
-            self.file_generator = FileNameGenerator(self.config.naming)
+            from ..naming.data_models import NamingConfig
+            naming_config_dict = self.config.get('naming', {})
+            naming_config = NamingConfig(**naming_config_dict) if naming_config_dict else NamingConfig()
+            self.file_generator = FileNameGenerator(naming_config)
             
             # Initialize export configuration
             export_config = ExportConfig(
-                output_directory=self.config.export.get('output_directory', './output'),
-                overwrite_existing=self.config.export.get('overwrite_existing', False),
-                create_subdirectories=self.config.export.get('create_subdirectories', True),
-                filename_collision_strategy=self.config.export.get('filename_collision_strategy', 'rename')
+                output_directory=self.config.get('export', {}).get('output_directory', './output'),
+                overwrite_existing=self.config.get('export', {}).get('overwrite_existing', False),
+                create_subdirectories=self.config.get('export', {}).get('create_subdirectories', True),
+                filename_collision_strategy=self.config.get('export', {}).get('filename_collision_strategy', 'rename')
             )
             self.exporter = PDFExporter(export_config)
             

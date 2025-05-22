@@ -291,9 +291,17 @@ class TestBenchmarkRunner(unittest.TestCase):
         self.assertIn("Duration: 2.50s", report)
         self.assertIn("Success: ✓", report)
     
+    @patch('psutil.virtual_memory')
+    @patch('psutil.cpu_count')
     @patch('json.dump')
-    def test_save_results(self, mock_json_dump):
+    def test_save_results(self, mock_json_dump, mock_cpu_count, mock_virtual_memory):
         """Test saving benchmark results."""
+        # Mock system info
+        mock_cpu_count.return_value = 4
+        mock_memory = Mock()
+        mock_memory.total = 8 * 1024 * 1024 * 1024  # 8GB
+        mock_virtual_memory.return_value = mock_memory
+        
         # Add a mock result
         result = BenchmarkResult(
             test_name="test",
