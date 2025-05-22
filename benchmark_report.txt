@@ -1,0 +1,44 @@
+Performance Benchmark Report
+========================================
+
+Test: pdf_processing_test_construction_docs.pdf
+  Duration: 0.00s
+  Memory Peak: 0.00MB
+  Memory Delta: -79.44MB
+  Success: ✗
+  Error: Boundary detection failed: 'Page' object has no attribute 'text'
+  Additional Metrics:
+    iterations: 3
+    success_count: 0
+    success_rate: 0.00
+    min_duration: 0
+    max_duration: 0
+    std_duration: 0
+
+Test: memory_stress_400mb_60s
+  Duration: 60.10s
+  Memory Peak: 329.81MB
+  Memory Delta: 10.37MB
+  Success: ✓
+  Additional Metrics:
+    target_memory_mb: 400
+    peak_exceeded_target: False
+    memory_efficiency: 1.00
+
+Test: export_performance_25_docs
+  Duration: 0.02s
+  Memory Peak: 79.80MB
+  Memory Delta: 0.88MB
+  Success: ✗
+  Error: Failed exports: 1
+  Additional Metrics:
+    target_document_count: 25
+    actual_exports: 4
+    successful_exports: 3
+    export_rate: 203.10
+
+Summary
+--------------------
+Total Tests: 3
+Successful: 1
+Success Rate: 33.3%
