@@ -47,12 +47,12 @@ class DocumentListView(ttk.Frame):
         self.tree.heading('pages', text='Pages')
         self.tree.heading('confidence', text='Confidence')
         
-        # Configure column widths
-        self.tree.column('select', width=50, minwidth=50, anchor='center')
-        self.tree.column('filename', width=400, minwidth=300)
-        self.tree.column('type', width=150, minwidth=120)
-        self.tree.column('pages', width=100, minwidth=80, anchor='center')
-        self.tree.column('confidence', width=100, minwidth=80, anchor='center')
+        # Configure column widths with better spacing
+        self.tree.column('select', width=50, minwidth=50, anchor='center', stretch=False)
+        self.tree.column('filename', width=500, minwidth=400, stretch=True)
+        self.tree.column('type', width=180, minwidth=150, stretch=False)
+        self.tree.column('pages', width=120, minwidth=100, anchor='center', stretch=False)
+        self.tree.column('confidence', width=120, minwidth=100, anchor='center', stretch=False)
         
         # Add scrollbar
         scrollbar = ttk.Scrollbar(self.tree_frame, orient=tk.VERTICAL, command=self.tree.yview)

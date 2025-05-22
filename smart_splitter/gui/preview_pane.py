@@ -51,6 +51,8 @@ class PreviewPane(ttk.Frame):
         self.update_callback = update_callback
         self.current_document: Optional[DocumentSection] = None
         self.current_pdf_path: Optional[str] = None
+        self.current_page_index = 0  # Track current page within document
+        self.pdf_doc = None  # Keep PDF document open for navigation
         
         self._setup_ui()
     
@@ -66,6 +68,28 @@ class PreviewPane(ttk.Frame):
         """Set up the document preview area."""
         preview_frame = ttk.LabelFrame(self, text="Page Preview", padding=10)
         preview_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        # Navigation controls for multi-page documents
+        nav_frame = ttk.Frame(preview_frame)
+        nav_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        self.prev_button = ttk.Button(nav_frame, text="◀ Previous", command=self._prev_page, state='disabled')
+        self.prev_button.pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.page_label = ttk.Label(nav_frame, text="Page 1 of 1")
+        self.page_label.pack(side=tk.LEFT, padx=10)
+        
+        self.next_button = ttk.Button(nav_frame, text="Next ▶", command=self._next_page, state='disabled')
+        self.next_button.pack(side=tk.LEFT, padx=(5, 0))
+        
+        # Page number entry for direct navigation
+        ttk.Label(nav_frame, text="Go to page:").pack(side=tk.LEFT, padx=(20, 5))
+        self.page_var = tk.StringVar(value="1")
+        self.page_entry = ttk.Entry(nav_frame, textvariable=self.page_var, width=5)
+        self.page_entry.pack(side=tk.LEFT, padx=(0, 5))
+        self.page_entry.bind('<Return>', self._on_page_entry)
+        
+        ttk.Button(nav_frame, text="Go", command=self._go_to_page).pack(side=tk.LEFT)
         
         # Create canvas for image display
         self.canvas = tk.Canvas(preview_frame, bg='white', relief=tk.SUNKEN, bd=2)
@@ -135,11 +159,25 @@ class PreviewPane(ttk.Frame):
             document: Document section to preview
             pdf_path: Path to the source PDF file
         """
+        # Close previous PDF if open
+        if self.pdf_doc:
+            self.pdf_doc.close()
+            self.pdf_doc = None
+            
         self.current_document = document
         self.current_pdf_path = pdf_path
+        self.current_page_index = 0  # Reset to first page of document
+        
+        # Open PDF for navigation
+        try:
+            self.pdf_doc = fitz.open(pdf_path)
+        except Exception as e:
+            print(f"Error opening PDF: {e}")
+            self.pdf_doc = None
         
         # Update controls
         self._update_controls()
+        self._update_navigation_controls()
         
         # Update preview image
         self._update_preview_image()
@@ -166,7 +204,7 @@ class PreviewPane(ttk.Frame):
     
     def _update_preview_image(self) -> None:
         """Update the preview image."""
-        if not self.current_document or not self.current_pdf_path:
+        if not self.current_document or not self.pdf_doc:
             self._show_no_preview()
             return
         
@@ -176,12 +214,11 @@ class PreviewPane(ttk.Frame):
             return
         
         try:
-            # Open PDF and get first page of document
-            pdf_doc = fitz.open(self.current_pdf_path)
-            page_num = self.current_document.start_page - 1  # Convert to 0-based
+            # Calculate actual page number in PDF
+            page_num = (self.current_document.start_page - 1) + self.current_page_index
             
-            if page_num < len(pdf_doc):
-                page = pdf_doc[page_num]
+            if page_num < len(self.pdf_doc) and page_num <= self.current_document.end_page - 1:
+                page = self.pdf_doc[page_num]
                 
                 # Get canvas dimensions
                 self.canvas.update_idletasks()  # Ensure canvas has updated dimensions
@@ -230,7 +267,11 @@ class PreviewPane(ttk.Frame):
                 # Update scroll region
                 self.canvas.configure(scrollregion=self.canvas.bbox("all"))
                 
-            pdf_doc.close()
+                # Update page label
+                current_page = self.current_page_index + 1
+                total_pages = self.current_document.page_count
+                self.page_label.config(text=f"Page {current_page} of {total_pages}")
+                self.page_var.set(str(current_page))
             
         except Exception as e:
             print(f"Error loading preview: {e}")
@@ -281,14 +322,23 @@ class PreviewPane(ttk.Frame):
     
     def clear_preview(self) -> None:
         """Clear the preview and reset controls."""
+        # Close PDF if open
+        if self.pdf_doc:
+            self.pdf_doc.close()
+            self.pdf_doc = None
+            
         self.current_document = None
         self.current_pdf_path = None
+        self.current_page_index = 0
         
         # Clear controls
         self.type_var.set("")
         self.filename_var.set("")
         self.pages_label.config(text="N/A")
         self.confidence_label.config(text="N/A")
+        
+        # Clear navigation
+        self._update_navigation_controls()
         
         # Clear preview
         self._show_no_preview()
@@ -301,3 +351,60 @@ class PreviewPane(ttk.Frame):
             if hasattr(self, '_resize_after_id'):
                 self.after_cancel(self._resize_after_id)
             self._resize_after_id = self.after(100, self._update_preview_image)
+    
+    def _update_navigation_controls(self) -> None:
+        """Update the state of navigation controls."""
+        if not self.current_document:
+            self.prev_button.config(state='disabled')
+            self.next_button.config(state='disabled')
+            self.page_entry.config(state='disabled')
+            self.page_label.config(text="Page 1 of 1")
+            return
+        
+        total_pages = self.current_document.page_count
+        current_page = self.current_page_index + 1
+        
+        # Update button states
+        self.prev_button.config(state='normal' if current_page > 1 else 'disabled')
+        self.next_button.config(state='normal' if current_page < total_pages else 'disabled')
+        self.page_entry.config(state='normal' if total_pages > 1 else 'disabled')
+        
+        # Update page label
+        self.page_label.config(text=f"Page {current_page} of {total_pages}")
+        self.page_var.set(str(current_page))
+    
+    def _prev_page(self) -> None:
+        """Navigate to the previous page."""
+        if self.current_page_index > 0:
+            self.current_page_index -= 1
+            self._update_navigation_controls()
+            self._update_preview_image()
+    
+    def _next_page(self) -> None:
+        """Navigate to the next page."""
+        if self.current_document and self.current_page_index < self.current_document.page_count - 1:
+            self.current_page_index += 1
+            self._update_navigation_controls()
+            self._update_preview_image()
+    
+    def _go_to_page(self) -> None:
+        """Go to a specific page number."""
+        if not self.current_document:
+            return
+        
+        try:
+            page_num = int(self.page_var.get())
+            if 1 <= page_num <= self.current_document.page_count:
+                self.current_page_index = page_num - 1
+                self._update_navigation_controls()
+                self._update_preview_image()
+            else:
+                # Reset to current page if invalid
+                self.page_var.set(str(self.current_page_index + 1))
+        except ValueError:
+            # Reset to current page if invalid
+            self.page_var.set(str(self.current_page_index + 1))
+    
+    def _on_page_entry(self, event=None) -> None:
+        """Handle Enter key in page entry."""
+        self._go_to_page()

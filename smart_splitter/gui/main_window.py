@@ -38,7 +38,8 @@ class SmartSplitterGUI:
         """Initialize the Smart-Splitter GUI."""
         self.root = tk.Tk()
         self.root.title("Smart-Splitter - Construction Document PDF Splitter")
-        self.root.geometry("1200x800")
+        self.root.geometry("1400x900")
+        self.root.minsize(1200, 700)  # Set minimum window size
         
         # Application state
         self.current_pdf_path: Optional[str] = None
@@ -148,6 +149,8 @@ class SmartSplitterGUI:
         menubar.add_cascade(label="Edit", menu=edit_menu)
         edit_menu.add_command(label="Select All", command=self._select_all_documents)
         edit_menu.add_command(label="Select None", command=self._select_no_documents)
+        edit_menu.add_separator()
+        edit_menu.add_command(label="Merge Selected Documents", command=self._merge_selected_documents)
         
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -192,17 +195,27 @@ class SmartSplitterGUI:
         main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         main_paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # Left panel - Document list
+        # Left panel - Document list (give more space)
         left_frame = ttk.LabelFrame(main_paned, text="Detected Documents", padding=10)
+        
+        # Add merge button at the top of the document list
+        merge_frame = ttk.Frame(left_frame)
+        merge_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Button(merge_frame, text="Merge Selected", 
+                  command=self._merge_selected_documents).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(merge_frame, text="Select multiple documents to merge", 
+                 foreground="gray").pack(side=tk.LEFT)
+        
         self.document_list = DocumentListView(left_frame, self._on_document_selected)
         self.document_list.pack(fill=tk.BOTH, expand=True)
-        main_paned.add(left_frame, weight=1)
+        main_paned.add(left_frame, weight=3)  # Give 3x more weight to document list
         
         # Right panel - Preview and editing
         right_frame = ttk.LabelFrame(main_paned, text="Preview & Edit", padding=10)
         self.preview_pane = PreviewPane(right_frame, self._on_document_updated)
         self.preview_pane.pack(fill=tk.BOTH, expand=True)
-        main_paned.add(right_frame, weight=1)
+        main_paned.add(right_frame, weight=2)  # Less weight for preview pane
     
     def _create_status_bar(self) -> None:
         """Create the status bar."""
@@ -461,6 +474,68 @@ into individual files with intelligent naming.
 © 2025 Smart-Splitter Development Team"""
         
         messagebox.showinfo("About Smart-Splitter", about_text)
+    
+    def _merge_selected_documents(self) -> None:
+        """Merge selected documents into a single document."""
+        selected_docs = self.document_list.get_selected_documents()
+        
+        if len(selected_docs) < 2:
+            messagebox.showwarning("Merge Documents", 
+                                 "Please select at least 2 documents to merge.")
+            return
+        
+        # Sort documents by start page to ensure proper order
+        selected_docs.sort(key=lambda doc: doc.start_page)
+        
+        # Create merged document
+        merged_doc = DocumentSection(
+            start_page=selected_docs[0].start_page,
+            end_page=selected_docs[-1].end_page,
+            document_type=selected_docs[0].document_type,  # Use first doc's type
+            filename=selected_docs[0].filename,  # Use first doc's filename as base
+            classification_confidence=min(doc.classification_confidence for doc in selected_docs),
+            text_sample=selected_docs[0].text_sample,
+            selected=True
+        )
+        
+        # Ask user to confirm merge details
+        pages_str = f"Pages {merged_doc.start_page}-{merged_doc.end_page}"
+        doc_count = len(selected_docs)
+        
+        message = f"Merge {doc_count} documents into one?\n\n"
+        message += f"Combined document will span {pages_str}\n"
+        message += f"Document type: {merged_doc.document_type.replace('_', ' ').title()}\n"
+        message += f"Filename: {merged_doc.filename}\n\n"
+        message += "You can edit these details after merging."
+        
+        if messagebox.askyesno("Confirm Merge", message):
+            # Remove original documents and add merged one
+            # Find indices of selected documents in the main list
+            indices_to_remove = []
+            for doc in selected_docs:
+                for i, main_doc in enumerate(self.documents):
+                    if (main_doc.start_page == doc.start_page and 
+                        main_doc.end_page == doc.end_page):
+                        indices_to_remove.append(i)
+                        break
+            
+            # Remove in reverse order to maintain indices
+            for i in sorted(indices_to_remove, reverse=True):
+                del self.documents[i]
+            
+            # Insert merged document at the position of the first removed document
+            insert_pos = min(indices_to_remove) if indices_to_remove else len(self.documents)
+            self.documents.insert(insert_pos, merged_doc)
+            
+            # Refresh the document list
+            self.document_list.populate_documents(self.documents)
+            
+            # Select the merged document
+            self.document_list.tree.selection_set(str(insert_pos + 1))
+            self._on_document_selected(insert_pos)
+            
+            self._update_status(f"Merged {doc_count} documents into one")
+            self.doc_count_label.config(text=f"{len(self.documents)} documents")
     
     def run(self) -> None:
         """Start the GUI application."""
