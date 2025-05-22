@@ -213,7 +213,7 @@ class SmartSplitterGUI:
         
         # Right panel - Preview and editing
         right_frame = ttk.LabelFrame(main_paned, text="Preview & Edit", padding=10)
-        self.preview_pane = PreviewPane(right_frame, self._on_document_updated)
+        self.preview_pane = PreviewPane(right_frame, self._on_document_updated, self.classifier)
         self.preview_pane.pack(fill=tk.BOTH, expand=True)
         main_paned.add(right_frame, weight=2)  # Less weight for preview pane
     

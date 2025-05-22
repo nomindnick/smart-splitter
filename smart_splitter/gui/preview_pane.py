@@ -39,20 +39,27 @@ class PreviewPane(ttk.Frame):
         "other"
     ]
     
-    def __init__(self, parent, update_callback: Optional[Callable[[DocumentSection], None]] = None):
+    def __init__(self, parent, update_callback: Optional[Callable[[DocumentSection], None]] = None,
+                 classifier=None):
         """
         Initialize the preview pane.
         
         Args:
             parent: Parent tkinter widget
             update_callback: Function to call when document is updated
+            classifier: Document classifier instance for feedback learning
         """
         super().__init__(parent)
         self.update_callback = update_callback
+        self.classifier = classifier
         self.current_document: Optional[DocumentSection] = None
         self.current_pdf_path: Optional[str] = None
         self.current_page_index = 0  # Track current page within document
         self.pdf_doc = None  # Keep PDF document open for navigation
+        
+        # Set up logging
+        import logging
+        self.logger = logging.getLogger(__name__)
         
         self._setup_ui()
     
@@ -306,6 +313,24 @@ class PreviewPane(ttk.Frame):
         if not new_filename:
             messagebox.showerror("Error", "Filename cannot be empty")
             return
+        
+        # Check if document type changed (user correction)
+        original_type = self.current_document.document_type
+        if new_type != original_type and hasattr(self, 'classifier') and self.classifier:
+            # Log the correction for feedback learning
+            text_sample = self.current_document.text_sample if hasattr(self.current_document, 'text_sample') else ""
+            confidence = self.current_document.classification_confidence if hasattr(self.current_document, 'classification_confidence') else 0.0
+            
+            try:
+                self.classifier.record_correction(
+                    original_type=original_type,
+                    corrected_type=new_type,
+                    confidence=confidence,
+                    text_sample=text_sample
+                )
+                self.logger.info(f"Recorded correction: {original_type} -> {new_type}")
+            except Exception as e:
+                self.logger.warning(f"Failed to record correction: {e}")
         
         # Update document
         self.current_document.document_type = new_type

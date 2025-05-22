@@ -8,6 +8,7 @@ from typing import List, Dict, Optional, Tuple
 from dataclasses import asdict
 
 from .data_models import ClassificationResult, ClassificationConfig, DocumentType, ClassificationMethod
+from .feedback import FeedbackLearningSystem
 
 try:
     from openai import OpenAI
@@ -19,17 +20,29 @@ except ImportError:
 class DocumentClassifier:
     """Document classifier using rule-based patterns and OpenAI API fallback"""
     
-    def __init__(self, config: ClassificationConfig, api_key: Optional[str] = None):
+    def __init__(self, config: ClassificationConfig, api_key: Optional[str] = None, 
+                 enable_feedback_learning: bool = True):
         """
         Initialize document classifier
         
         Args:
             config: Classification configuration
             api_key: OpenAI API key (required for API classification)
+            enable_feedback_learning: Enable feedback learning system
         """
         self.config = config
         self.api_key = api_key
         self.logger = logging.getLogger(__name__)
+        
+        # Initialize feedback learning system
+        self.feedback_system = None
+        if enable_feedback_learning:
+            try:
+                self.feedback_system = FeedbackLearningSystem()
+                self.logger.info("Feedback learning system initialized")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize feedback system: {e}")
+                self.feedback_system = None
         
         # Initialize OpenAI client if available and API key provided
         self.openai_client = None
@@ -72,6 +85,9 @@ class DocumentClassifier:
         # If rule-based classification is confident enough, return it
         if rule_result.confidence >= self.config.confidence_threshold:
             self.logger.debug(f"Rule-based classification successful: {rule_result.document_type}")
+            # Record classification for feedback learning
+            if self.feedback_system:
+                self.feedback_system.record_classification(rule_result.document_type)
             return rule_result
         
         # Try API classification if available and rule-based wasn't confident
@@ -182,6 +198,12 @@ class DocumentClassifier:
             if matches:
                 # Base confidence of 0.6 for 1 match, +0.2 for each additional match
                 confidence = min(0.6 + (len(matches) - 1) * 0.2, 1.0)
+                
+                # Apply feedback learning adjustment if available
+                if self.feedback_system:
+                    adjustment = self.feedback_system.get_confidence_adjustment(doc_type)
+                    confidence *= adjustment
+                    self.logger.debug(f"Applied feedback adjustment for {doc_type}: {adjustment}")
             
             if confidence > best_confidence:
                 best_confidence = confidence
@@ -271,3 +293,41 @@ Return only the category name, nothing else."""
             stats[doc_type] = len(patterns)
         
         return stats
+    
+    def record_correction(self, original_type: str, corrected_type: str, 
+                         confidence: float, text_sample: str):
+        """
+        Record a user correction for feedback learning
+        
+        Args:
+            original_type: Original classification
+            corrected_type: User's corrected classification
+            confidence: Original confidence score
+            text_sample: Sample of document text
+        """
+        if self.feedback_system:
+            self.feedback_system.record_correction(
+                original_type, corrected_type, confidence, text_sample
+            )
+    
+    def get_feedback_report(self) -> Dict[str, Dict[str, float]]:
+        """
+        Get feedback learning accuracy report
+        
+        Returns:
+            Dictionary with accuracy metrics by document type
+        """
+        if self.feedback_system:
+            return self.feedback_system.get_accuracy_report()
+        return {}
+    
+    def suggest_pattern_improvements(self) -> Dict[str, List[str]]:
+        """
+        Get suggested pattern improvements based on user corrections
+        
+        Returns:
+            Dictionary of document types to suggested patterns
+        """
+        if self.feedback_system:
+            return self.feedback_system.suggest_pattern_improvements()
+        return {}
